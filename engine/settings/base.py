@@ -9,7 +9,7 @@ from firebase_admin import credentials, initialize_app
 
 from common.utils import getenv_boolean, getenv_integer, getenv_list
 
-VERSION = "dev-oss"
+VERSION = "1.3.115"
 SEND_ANONYMOUS_USAGE_STATS = getenv_boolean("SEND_ANONYMOUS_USAGE_STATS", default=True)
 
 # License is OpenSource or Cloud
