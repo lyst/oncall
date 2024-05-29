@@ -123,6 +123,7 @@ class IntegrationSerializer(EagerLoadingMixin, serializers.ModelSerializer, Main
             connection_error = GrafanaAlertingSyncManager.check_for_connection_errors(organization)
             if connection_error:
                 raise serializers.ValidationError(connection_error)
+        validated_data["alert_group_labels_template"] = "{{ payload.labels | tojson }}"
         with transaction.atomic():
             try:
                 instance = AlertReceiveChannel.create(
