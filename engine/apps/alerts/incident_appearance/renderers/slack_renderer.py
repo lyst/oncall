@@ -79,7 +79,9 @@ class AlertGroupSlackRenderer(AlertGroupBaseRenderer):
     def alert_renderer_class(self):
         return AlertSlackRenderer
 
-    def render_alert_group_blocks(self) -> Block.AnyBlocks:
+    def render_alert_group_blocks(self, force_blank=settings.FEATURE_SLACK_ALL_ATTACHMENTS) -> Block.AnyBlocks:
+        if force_blank:
+            return []
         blocks: Block.AnyBlocks = self.alert_renderer.render_alert_blocks()
         alerts_count = self.alert_group.alerts.count()
         if alerts_count > 1:
@@ -91,7 +93,11 @@ class AlertGroupSlackRenderer(AlertGroupBaseRenderer):
         return blocks
 
     def render_alert_group_attachments(self):
-        attachments = self.alert_renderer.render_alert_attachments()
+        attachments = []
+        if settings.FEATURE_SLACK_ALL_ATTACHMENTS:
+            blocks = self.render_alert_group_blocks(force_blank=False)
+            attachments = [{"blocks": blocks}]
+        attachments.extend(self.alert_renderer.render_alert_attachments())
 
         if self.alert_group.root_alert_group is not None:
             slack_message = self.alert_group.root_alert_group.slack_message
@@ -136,23 +142,45 @@ class AlertGroupSlackRenderer(AlertGroupBaseRenderer):
         if self.alert_group.resolved:
             if not settings.FEATURE_SKIP_SLACK_RESOLVED_BY:
                 resolve_attachment = {
-                    "fallback": "Resolved...",
-                    "text": self.alert_group.get_resolve_text(mention_user=True),
-                    "callback_id": "alert",
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": self.alert_group.get_resolve_text(mention_user=True),
+                            },
+                        }
+                    ],
                 }
                 attachments.append(resolve_attachment)
         else:
             if self.alert_group.acknowledged:
                 ack_attachment = {
-                    "fallback": "Acknowledged...",
-                    "text": self.alert_group.get_acknowledge_text(mention_user=True),
-                    "callback_id": "alert",
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": self.alert_group.get_acknowledge_text(mention_user=True),
+                            },
+                        }
+                    ],
                 }
                 attachments.append(ack_attachment)
 
         # Attaching invitation info
         if not self.alert_group.resolved:
             attachments += self._get_invitation_attachment()
+
+        # Merge adjacent blocks-type attachments
+        pos = 0
+        while pos + 1 < len(attachments):
+            if current := attachments[pos].get("blocks"):
+                if next := attachments[pos + 1].get("blocks"):
+                    attachments[pos]["blocks"] = current + next
+                    attachments.pop(pos + 1)
+                    continue
+            pos += 1
 
         attachments = self._set_attachments_color(attachments)
         return attachments
