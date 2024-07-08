@@ -57,12 +57,13 @@ class AlertSlackRenderer(AlertBaseRenderer):
         if is_string_with_visible_characters(self.templated_alert.image_url):
             attachments.append(
                 {
-                    "fallback": "{}: {}".format(self.channel.get_integration_display(), self.alert.title),
-                    "title": "{} via Grafana OnCall".format(self.channel.get_integration_display()),
-                    "title_link": self.templated_alert.source_link,
-                    "callback_id": "alert",
-                    "text": "",
-                    "image_url": self.templated_alert.image_url,
+                    "blocks": [
+                        {
+                            "type": "image",
+                            "image_url": self.templated_alert.image_url,
+                            "alt_text": "{}: {}".format(self.channel.get_integration_display(), self.alert.title),
+                        }
+                    ]
                 }
             )
         return attachments
